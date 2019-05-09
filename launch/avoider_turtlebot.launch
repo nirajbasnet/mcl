@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="world_file" value=" $(find homework1)/maps/stage/myworld.world"/>
+  <arg name="map_file"  value="$(find homework1)/maps/myworld.yaml"/>
+  <include file="$(find homework1)/launch/turtlebot_in_stage.launch">
+     <arg name="world_file" value="$(arg world_file)"/>
+     <arg name="map_file"  value="$(arg map_file)"/>
+  </include>
+  <!--  **************** Visualisation ****************  -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find homework1)/rviz/avoider_navigation.rviz"/>
+  <node pkg="homework1" name="potential_field_node" type="avoider.py" output="screen"/>
+  
+</launch>
+
