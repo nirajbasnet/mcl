@@ -8,7 +8,7 @@ import tf_conversions.posemath as posemath
 class MCLTf(object):
     def __init__(self):
         rospy.init_node('mcl_tf')
-        br = tf.TransformBroadcaster()
+        self.br = tf.TransformBroadcaster()
         self.tf_listener =  tf.TransformListener()
 
         rospy.sleep(1.0) 
@@ -17,15 +17,6 @@ class MCLTf(object):
 
         self.transform_position = np.array([0., 0., 0.])
         self.transform_quaternion = np.array([0., 0., 0., 1.0])
-        
-        # Broadcast the transform at 10 HZ
-        while not rospy.is_shutdown():
-            br.sendTransform(self.transform_position,
-                             self.transform_quaternion,
-                             rospy.Time.now(),
-                             "odom",
-                             "map")
-            rospy.sleep(.1)
 
     def pose_callback(self, pose):
         try:
@@ -51,10 +42,16 @@ class MCLTf(object):
             
         except tf.Exception as e:
             print(e)
-            print("(May not be a big deal.)")
 
 if __name__ == '__main__':
     try:
         td = MCLTf()
+        while not rospy.is_shutdown():
+            td.br.sendTransform(td.transform_position,
+                             td.transform_quaternion,
+                             rospy.Time.now(),
+                             "odom",
+                             "map")
+            rospy.sleep(.1)
     except rospy.ROSInterruptException:
         pass

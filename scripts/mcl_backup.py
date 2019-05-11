@@ -3,11 +3,12 @@
 import rospy
 from std_msgs.msg import String, Header, ColorRGBA
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Twist, Point, Vector3, PointStamped, Pose, PoseStamped, Quaternion, PoseArray
+from geometry_msgs.msg import Vector3, PointStamped, Pose, PoseStamped, Quaternion, PoseArray,PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 import tf
 import tf.transformations as transform
 import math
+import time
 import numpy as np
 from nav_msgs.srv import GetMap
 from visualization_msgs.msg import Marker
@@ -18,8 +19,8 @@ class MCL:
     def __init__(self):
         rospy.init_node('mcl_node', anonymous=True)
 
-        self.MAX_PARTICLES = 100
-        self.SKIP_STEP = 20
+        self.MAX_PARTICLES = 30
+        self.SKIP_STEP = 30
         self.subsampled_laser_scan = None
         self.map_data = None
         self.free_space = None
@@ -31,9 +32,14 @@ class MCL:
         self.MAP_X_MIN = 0.0
         self.MAP_Y_MAX = 5.0
         self.MAP_Y_MIN = 0.0
-        self.NOISE_X = 0.01  # 0.05
-        self.NOISE_Y = 0.01  # 0.05
-        self.NOISE_THETA = 0.01  # 0.1
+        self.NOISE_X = 0.05  # 0.05
+        self.NOISE_Y = 0.05  # 0.05
+        self.NOISE_THETA = 0.1  # 0.1
+        self.LINEAR_UPDATE = 0.1
+        self.ANGULAR_UPDATE = 0.1
+
+        self.linear_delta = 0
+        self.angular_delta=0
 
         self.particles = np.zeros((self.MAX_PARTICLES, 3))
         self.copy_particles = np.copy(self.particles)
@@ -42,8 +48,8 @@ class MCL:
         self.deltas = np.zeros((self.MAX_PARTICLES, 3))
 
         self.mean_pose = np.array([0, 0, 0])
+        self.current_pose = np.array([0, 0, 0])
         self.last_pose = np.array([0, 0, 0])
-        self.current_orientation = 0.0
         self.odom_data = np.array([0, 0, 0])
 
         self.odom_initialized = False
@@ -52,10 +58,15 @@ class MCL:
         self.mcl_run_flag = False
         self.rviz_display_flag = True
         self.map_read_flag = False
+        self.DEBUG = False
+
+        initial_pose_x = rospy.get_param('initial_pose_x',0.0)
+        initial_pose_y = rospy.get_param('initial_pose_y', 0.0)
+        initial_pose_theta = rospy.get_param('initial_pose_theta', 0.0)
 
         rospy.Subscriber("scan", LaserScan, self.scan_callback)
-        rospy.Subscriber("/odom", Odometry, self.odometry_callback)
-        self.cmd_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1)
+        rospy.Subscriber("odom", Odometry, self.odometry_callback)
+        rospy.Subscriber("initialpose",PoseWithCovarianceStamped,self.initial_pose_callback)
         self.pose_pub = rospy.Publisher("/mcl_pose", PoseStamped, queue_size=1)
         self.particles_pub = rospy.Publisher("/particles", PoseArray, queue_size=1)
         self.pub_fake_scan = rospy.Publisher("/fake_scan", LaserScan, queue_size=1)
@@ -63,7 +74,7 @@ class MCL:
         rospy.Timer(rospy.Duration(0.1), self.rviz_display_callback)
         self.tf_broadcaster = tf.TransformBroadcaster()
         self.read_occupancy_gridmap()
-        self.initialize_particles('local',self.particle_to_pose((0,0,0)))
+        self.initialize_particles('local',self.particle_to_pose((initial_pose_x,initial_pose_y,initial_pose_theta)))
         # self.initialize_particles('global')
 
     def distance(self, p1, p2):
@@ -108,11 +119,18 @@ class MCL:
         poses_particles.poses = map(self.particle_to_pose, particles)
         self.particles_pub.publish(poses_particles)
 
+    def initial_pose_callback(self,msg):
+        current_angle = self.quaternion_to_euler_yaw(msg.pose.pose.orientation)
+        # print(msg.pose.pose.position.x, msg.pose.pose.position.y,current_angle)
+        initial_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, current_angle])
+        self.initialize_particles('local', self.particle_to_pose((initial_pose[0], initial_pose[1], initial_pose[2])))
+
     def odometry_callback(self, msg):
         current_angle = self.quaternion_to_euler_yaw(msg.pose.pose.orientation)
-        current_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, current_angle])
+        # print(msg.pose.pose.position.x, msg.pose.pose.position.y,current_angle)
+        self.current_pose = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y, current_angle])
         if not self.odom_initialized:
-            self.last_pose = current_pose
+            self.last_pose = np.copy(self.current_pose)
             self.odom_initialized = True
         else:
             cos_theta = np.cos(-self.last_pose[2])
@@ -120,17 +138,27 @@ class MCL:
             rot = np.matrix([[cos_theta, -sin_theta],
                              [sin_theta, cos_theta]])  # rotation matrix to convert global coordinate to local
             delta = np.array(
-                [current_pose[0:2] - self.last_pose[0:2]]).transpose()  # taking transpose to convert to column vector
+                [self.current_pose[0:2] - self.last_pose[0:2]]).transpose()  # taking transpose to convert to column vector
             local_delta = (rot * delta).transpose()  # using rotation matrix to get local deltas
             self.odom_data = np.array([local_delta[0, 0], local_delta[0, 1], current_angle - self.last_pose[2]])
-            self.last_pose = current_pose
-            if not self.mcl_run_flag:
-                self.mcl_run_flag = True
-                self.run_MCL()
+            # self.last_pose = np.copy(self.current_pose)
+            self.linear_delta = np.linalg.norm(np.array([local_delta[0, 0], local_delta[0, 1]]))
+            self.angular_delta = current_angle - self.last_pose[2]
+            if self.DEBUG:
+                print("odom_callback")
+                print "current-pose=",self.current_pose
+                print(local_delta)
+
+            # if not self.mcl_run_flag:
+            #     # linear_delta = np   .linalg.norm(np.array([local_delta[0, 0], local_delta[0, 1]]))
+            #     # print "linear_update=", linear_delta
+            #     self.mcl_run_flag = True
+            #     self.run_MCL()
 
 
     def scan_callback(self, msg):
         #filter out nan and inf values as well
+        # print("scan_callback")
         self.subsampled_laser_scan = np.array(msg.ranges[::self.SKIP_STEP])
         if not self.lidar_initialized:
             laser_angles = np.linspace(msg.angle_min, msg.angle_max, len(msg.ranges))
@@ -193,7 +221,7 @@ class MCL:
         # self.state_lock.release()
 
     def compute_motion_model(self, copy_odom):
-        print("computing odometry motion model")
+        # print("computing odometry motion model")
         cosines = np.cos(self.copy_particles[:, 2])
         sines = np.sin(self.copy_particles[:, 2])
         self.deltas[:, 0] = cosines * copy_odom[0] - sines * copy_odom[1]
@@ -207,13 +235,8 @@ class MCL:
         self.copy_particles[:, 2] += self.deltas[:, 2] + noise_theta
 
     def compute_sensor_model(self):
-        print("computing laser sensor model")
-        errors = []
-        for i in range(self.MAX_PARTICLES):
-            errors.append(self.evaluate_sensor_measurement(self.copy_particles[i]))
-        # print(errors)
-        errors = np.array(errors)
-        # errors = np.array(map(self.evaluate_sensor_measurement, self.copy_particles))
+        # print("computing laser sensor model")
+        errors = np.array(map(self.evaluate_sensor_measurement, self.copy_particles))
         self.weights = np.exp(-errors)
         # print(self.weights)
 
@@ -268,43 +291,12 @@ class MCL:
         return np.array(ranges)
 
     def resample_particles(self):
-        print("resampling particles")
+        # print("resampling particles")
         resampling_indices = np.random.choice(self.particle_indices, self.MAX_PARTICLES, p=self.weights)
         self.copy_particles = self.particles[resampling_indices, :]
 
     def publish_odom_and_pose_tf(self, mean_pose=None):
-        print("publish odom and pose tf")
-        # listener = tf.TransformListener()
-        # rospy.sleep(10.)
-        #
-        # base_point = PointStamped()
-        # base_point.header.frame_id = "base_footprint"
-        # base_point.header.stamp = rospy.Time(0)
-        # base_point.point.x = -0.1
-        # base_point.point.y = 0.0
-        # base_point.point.z = 0.29
-        # laser_point = PointStamped()
-        # listener.transformPoint("base_laser_link", base_point, laser_point)
-        # print("laser point=",laser_point)
-
-        # self.tf_broadcaster.sendTransform((0,0, 0),
-        #                                   (0,0,0,1),
-        #                            rospy.Time.now(), "/odom", "/map")
-
-        # odom = Odometry()
-        # odom.header = self.create_header("/map")
-        # odom.pose.pose.position.x = mean_pose[0]
-        # odom.pose.pose.position.y = mean_pose[1]
-        # quaternion = transform.quaternion_from_euler(0, 0, mean_pose[2])
-        # odom.pose.pose.orientation.z = quaternion[2]
-        # odom.pose.pose.orientation.w = quaternion[3]
-        # self.odom_pub.publish(odom)
-        #
-        #
-        # self.tf_broadcaster.sendTransform((mean_pose[0], mean_pose[1], 0),
-        #                                   tf.transformations.quaternion_from_euler(0, 0, mean_pose[2]),
-        #                                   rospy.Time.now(), "/base_footprint", "/odom")
-
+        # print("publish odom and pose tf")
         pose_tf = PoseStamped()
         pose_tf.header = self.create_header("map")  # should be map
         pose_tf.pose = self.particle_to_pose(self.mean_pose)
@@ -313,28 +305,31 @@ class MCL:
 
     def run_MCL(self):
         if self.odom_initialized and self.lidar_initialized and self.particles_initialized:
+            total_time= time.time()
+
             # compute motion model from odometry data
             self.compute_motion_model(np.copy(self.odom_data))
 
+            sensor_model_time = time.time()
             # compute sensor model for laserscan data
             self.compute_sensor_model()
-
+            print "sensor model time= ",time.time()-sensor_model_time
             # normalize importance weights
             self.weights = self.weights / np.sum(self.weights)
             self.particles = np.copy(self.copy_particles)  # probably don't need copy here,,test it
 
-            # resample particles based on the importance weights
-            self.resample_particles()
-
             # find mean pose from all particles
             self.mean_pose = np.dot(self.particles.transpose(), self.weights)
+
+            # resample particles based on the importance weights
+            self.resample_particles()
 
             # publish tranform between base_link and map or between base_footprint and map
             self.publish_odom_and_pose_tf(self.mean_pose)
 
             # self.show_particles_in_rviz(self.particles)
             self.publish_scan(self.subsampled_laser_angles, self.extract_particle_scan(self.mean_pose))
-
+            print "total_time = ",time.time()-total_time
             self.mcl_run_flag = False
 
     def test(self):
@@ -350,5 +345,9 @@ if __name__ == '__main__':
     particle_filter = MCL()
     rate = rospy.Rate(20)
     while not rospy.is_shutdown():
-        # particle_filter.test()
+        if not particle_filter.mcl_run_flag:
+            if particle_filter.linear_delta!=0 or particle_filter.angular_delta!=0:
+                particle_filter.mcl_run_flag = True
+                particle_filter.run_MCL()
+                particle_filter.last_pose = np.copy(particle_filter.current_pose)
         rate.sleep()

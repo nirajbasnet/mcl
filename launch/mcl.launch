@@ -9,6 +9,7 @@
 
   <node pkg="mcl" name="mcl_node" type="mcl.py" output="screen"/>
   <node pkg="mcl" name="mcl_tf" type="mcl_tf.py"/>
+  <include file="$(find turtlebot_teleop)/launch/keyboard_teleop.launch"/>
 
   <!--  **************** Visualisation ****************  -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find mcl)/rviz/navigation.rviz"/>

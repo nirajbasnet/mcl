@@ -1,11 +1,16 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="world_file" value=" $(find mcl)/maps/stage/myworld.world"/>
-  <arg name="map_file"  value="$(find mcl)/maps/myworld.yaml"/>
+  <arg name="world_file" value=" $(find mcl)/maps/stage/robopark_plan.world"/>
+  <arg name="map_file"  value="$(find mcl)/maps/robopark_plan.yaml"/>
   <include file="$(find mcl)/launch/turtlebot_in_stage.launch">
      <arg name="world_file" value="$(arg world_file)"/>
      <arg name="map_file"  value="$(arg map_file)"/>
   </include>
+
+  <node pkg="mcl" name="mcl_node" type="mcl.py" output="screen"/>
+  <node pkg="mcl" name="mcl_tf" type="mcl_tf.py"/>
+  <include file="$(find turtlebot_teleop)/launch/keyboard_teleop.launch"/>
+
   <!--  **************** Visualisation ****************  -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find mcl)/rviz/navigation.rviz"/>
   
