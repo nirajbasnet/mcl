@@ -1,0 +1,7 @@
+max_particles: 30
+initialization_mode: local   #local or global mode for particles initialization
+initial_pose_x: 0.0
+iniital_pose_y: 0.0
+initial_pose_theta: 0.0
+skip_beams: 30              #number of laser beams to skip while subsampling for sensor model computation
+

@@ -10,18 +10,15 @@ class MCLTf(object):
         rospy.init_node('mcl_tf')
         self.br = tf.TransformBroadcaster()
         self.tf_listener =  tf.TransformListener()
-
-        rospy.sleep(1.0) 
-
+        rospy.sleep(1.0)
         rospy.Subscriber('mcl_pose', PoseStamped, self.pose_callback)
-
         self.transform_position = np.array([0., 0., 0.])
         self.transform_quaternion = np.array([0., 0., 0., 1.0])
 
     def pose_callback(self, pose):
         try:
-            self.tf_listener.waitForTransform('map',  # from here
-                                              'odom', # to here
+            self.tf_listener.waitForTransform('map',
+                                              'odom',
                                               pose.header.stamp, 
                                               rospy.Duration(1.0))
             frame = posemath.fromMsg(pose.pose).Inverse()

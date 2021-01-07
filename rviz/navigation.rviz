@@ -233,164 +233,19 @@ Visualization Manager:
       Value: true
       Visual Enabled: true
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        base_footprint:
-          Value: true
-        base_laser_link:
-          Value: true
-        base_link:
-          Value: true
-        camera_depth_frame:
-          Value: true
-        camera_depth_optical_frame:
-          Value: true
-        camera_link:
-          Value: true
-        camera_rgb_frame:
-          Value: true
-        camera_rgb_optical_frame:
-          Value: true
-        caster_back_link:
-          Value: true
-        caster_front_link:
-          Value: true
-        cliff_sensor_front_link:
-          Value: true
-        cliff_sensor_left_link:
-          Value: true
-        cliff_sensor_right_link:
-          Value: true
-        gyro_link:
-          Value: true
-        map:
-          Value: true
-        mount_asus_xtion_pro_link:
-          Value: true
-        odom:
-          Value: true
-        plate_bottom_link:
-          Value: true
-        plate_middle_link:
-          Value: true
-        plate_top_link:
-          Value: true
-        pole_bottom_0_link:
-          Value: true
-        pole_bottom_1_link:
-          Value: true
-        pole_bottom_2_link:
-          Value: true
-        pole_bottom_3_link:
-          Value: true
-        pole_bottom_4_link:
-          Value: true
-        pole_bottom_5_link:
-          Value: true
-        pole_kinect_0_link:
-          Value: true
-        pole_kinect_1_link:
-          Value: true
-        pole_middle_0_link:
-          Value: true
-        pole_middle_1_link:
-          Value: true
-        pole_middle_2_link:
-          Value: true
-        pole_middle_3_link:
-          Value: true
-        pole_top_0_link:
-          Value: true
-        pole_top_1_link:
-          Value: true
-        pole_top_2_link:
-          Value: true
-        pole_top_3_link:
-          Value: true
-        wheel_left_link:
-          Value: true
-        wheel_right_link:
-          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        map:
-          odom:
-            base_footprint:
-              base_link:
-                base_laser_link:
-                  {}
-                camera_rgb_frame:
-                  camera_depth_frame:
-                    camera_depth_optical_frame:
-                      {}
-                  camera_link:
-                    {}
-                  camera_rgb_optical_frame:
-                    {}
-                caster_back_link:
-                  {}
-                caster_front_link:
-                  {}
-                cliff_sensor_front_link:
-                  {}
-                cliff_sensor_left_link:
-                  {}
-                cliff_sensor_right_link:
-                  {}
-                gyro_link:
-                  {}
-                mount_asus_xtion_pro_link:
-                  {}
-                plate_bottom_link:
-                  {}
-                plate_middle_link:
-                  {}
-                plate_top_link:
-                  {}
-                pole_bottom_0_link:
-                  {}
-                pole_bottom_1_link:
-                  {}
-                pole_bottom_2_link:
-                  {}
-                pole_bottom_3_link:
-                  {}
-                pole_bottom_4_link:
-                  {}
-                pole_bottom_5_link:
-                  {}
-                pole_kinect_0_link:
-                  {}
-                pole_kinect_1_link:
-                  {}
-                pole_middle_0_link:
-                  {}
-                pole_middle_1_link:
-                  {}
-                pole_middle_2_link:
-                  {}
-                pole_middle_3_link:
-                  {}
-                pole_top_0_link:
-                  {}
-                pole_top_1_link:
-                  {}
-                pole_top_2_link:
-                  {}
-                pole_top_3_link:
-                  {}
-                wheel_left_link:
-                  {}
-                wheel_right_link:
-                  {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -586,9 +441,9 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 5.28150558
+      Max Intensity: 3.92494464
       Min Color: 0; 0; 0
-      Min Intensity: -0.378038019
+      Min Intensity: -0.561920822
       Name: LaserScan
       Position Transformer: XYZ
       Queue Size: 10

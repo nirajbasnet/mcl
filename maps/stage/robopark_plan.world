@@ -11,7 +11,7 @@ define block model
 # throw in a robot
 turtlebot
 (
-  pose [ 0.000 0.000 0.000 0.000 ]
+  pose [ 2.000 2.000 0.000 0.000 ]
   name "turtlebot1"
   color "gray"
   gui_nose 1
